@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.Link;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,6 +32,7 @@ import java.util.Objects;
 
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
 import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
 
 
 
@@ -76,7 +78,7 @@ public class OrderController {
         Link link = linkTo(methodOn(OrderController.class).findAll()).withSelfRel();
         CollectionModel<OrderDTO> result = CollectionModel.of(orders, link);
         return result;
-     }
+    }
 
     @Operation(summary = "get order by id")
     @ApiResponses(value = {
@@ -106,12 +108,12 @@ public class OrderController {
     @Operation(summary = "delete order by id")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "order deleted",
-            content = {@Content(mediaType = "application/json",
-            schema = @Schema (implementation = Order.class))}),
+                    content = {@Content(mediaType = "application/json",
+                            schema = @Schema (implementation = Order.class))}),
             @ApiResponse(responseCode = "400", description = "Invalid id",
-            content = @Content),
+                    content = @Content),
             @ApiResponse(responseCode = "404", description = "Order not found",
-            content = @Content)})
+                    content = @Content)})
     @DeleteMapping("/order/{orderId}")
     public ResponseEntity<Void> deleteOrder(@PathVariable Long orderId){
         boolean deleted = orderService.delete(orderId);
@@ -171,8 +173,8 @@ public class OrderController {
                     content = @Content)})
     @GetMapping("/order/client/{clientId}/status/{status}")
     @CircuitBreaker(name="promotionById", fallbackMethod = "getOrderByClientAndStatusFallback")
-     public List <OrderDTO> findByClientAndStatus (@PathVariable Long clientId,
-                                @PathVariable String status) {
+    public List <OrderDTO> findByClientAndStatus (@PathVariable Long clientId,
+                                                  @PathVariable String status) {
         List<OrderDTO> orders = orderService.findByClientAndStatus(clientId, status);
         for(OrderDTO order : orders){
             Link selfLink = linkTo(methodOn(OrderController.class).getOrder(order.getId())).withSelfRel();
@@ -192,15 +194,220 @@ public class OrderController {
             }
         }
         return orders;
-     }
+    }
 
-     OrderDTO getOrderFallback(Long orderId, Throwable throwable){
+    OrderDTO getOrderFallback(Long orderId, Throwable throwable){
         OrderDTO orderDTO = orderService.findById(orderId);
         return orderDTO;
-     }
+    }
 
     public List <OrderDTO> getOrderByClientAndStatusFallback(Long clientId, String status, Throwable throwable){
         List<OrderDTO> orders = orderService.findByClientAndStatus(clientId, status);
         return orders;
     }
 }
+
+
+//@RestController
+//public class OrderController {
+//    @Autowired
+//    OrderService orderService;
+//    @Autowired
+//    ModelMapper modelMapper;
+//
+//    @Autowired
+//    PromotionServiceProxy promotionServiceProxy;
+//
+//    private final static Logger logger = LoggerFactory.getLogger(OrderController.class);
+//
+//    @Operation(summary = "get all orders")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "orders returned successfully",
+//                    content = {@Content(mediaType = "application/json",
+//                            schema = @Schema (implementation = Order.class))}),
+//            @ApiResponse(responseCode = "400", description = "Invalid data",
+//                    content = @Content),
+//            @ApiResponse(responseCode = "404", description = "Orders not found",
+//                    content = @Content)})
+//    @GetMapping(value="/order/list")
+//    public CollectionModel<OrderDTO> findAll(@RequestHeader("awbd-id") String correlationId){
+//        List <OrderDTO> orders = orderService.findAll();
+//        for (final OrderDTO order : orders) {
+//            Link selflink = linkTo(methodOn(OrderController.class).getOrderOld(correlationId, order.getId())).withSelfRel();
+//            order.add(selflink);
+//
+//            Link deleteLink = linkTo(methodOn(OrderController.class).deleteOrder(order.getId())).withRel("deleteOrder");
+//            order.add(deleteLink);
+//
+//            Link postLink = linkTo(methodOn(OrderController.class).saveOrder(correlationId, order)).withRel("saveOrder");
+//            order.add(postLink);
+//
+//            Link putLink = linkTo(methodOn(OrderController.class).updateOrder(correlationId, order)).withRel("updateOrder");
+//            order.add(putLink);
+//
+//        }
+//
+//        Link link = linkTo(methodOn(OrderController.class).findAll(correlationId)).withSelfRel();
+//        CollectionModel<OrderDTO> result = CollectionModel.of(orders, link);
+//        return result;
+//     }
+//
+//    @Operation(summary = "get order by id")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "order returned successfully",
+//                    content = {@Content(mediaType = "application/json",
+//                            schema = @Schema (implementation = Order.class))}),
+//            @ApiResponse(responseCode = "400", description = "Invalid id",
+//                    content = @Content),
+//            @ApiResponse(responseCode = "404", description = "Order not found",
+//                    content = @Content)})
+//    @GetMapping(path="/order/{orderId}", produces = MediaType.APPLICATION_JSON_VALUE)
+//    @CircuitBreaker(name="promotionById", fallbackMethod = "getOrderFallback")
+//    public ResponseEntity<OrderDTO> getOrder(@RequestHeader("awbd-id") String correlationId, @PathVariable Long orderId){
+//        OrderDTO order = orderService.findById(orderId);
+//
+//        ResponseEntity<Promotion> responsePromotion = promotionServiceProxy.findPromotion(correlationId);
+//        Promotion promotion = responsePromotion.getBody();
+//        logger.info(promotion.getVersionId());
+//        logger.info("correlation-id order get by id: {}", correlationId);
+//        List<OrderDishDTO> dishes = order.getDishes();
+//        for (final OrderDishDTO dish : dishes) {
+//            DishDTO dishDTO = dish.getDish();
+//            if (Objects.equals(dishDTO.getName().toLowerCase(), "pizza") && dish.getQuantity() >= 2)
+//                dish.setQuantity(dish.getQuantity() + promotion.getWeek());
+//        }
+//
+//        return ResponseEntity.status(HttpStatus.OK).body(order);
+//    }
+//
+//    @Operation(summary = "get order by id")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "order returned successfully",
+//                    content = {@Content(mediaType = "application/json",
+//                            schema = @Schema (implementation = Order.class))}),
+//            @ApiResponse(responseCode = "400", description = "Invalid id",
+//                    content = @Content),
+//            @ApiResponse(responseCode = "404", description = "Order not found",
+//                    content = @Content)})
+//    @GetMapping(path="/order_old/{orderId}", produces = MediaType.APPLICATION_JSON_VALUE)
+//    @CircuitBreaker(name="promotionById", fallbackMethod = "getOrderFallback")
+//    public OrderDTO getOrderOld(@RequestHeader("awbd-id") String correlationId, @PathVariable Long orderId){
+//        OrderDTO order = orderService.findById(orderId);
+//        ResponseEntity<Promotion> promotionResponse = promotionServiceProxy.findPromotion(correlationId);
+//        Promotion promotion = promotionResponse.getBody();
+//        logger.info(promotion.getVersionId());
+//        List<OrderDishDTO> dishes = order.getDishes();
+//        for (final OrderDishDTO dish : dishes) {
+//            DishDTO dishDTO = dish.getDish();
+//            if (Objects.equals(dishDTO.getName().toLowerCase(), "pizza") && dish.getQuantity() >= 2)
+//                dish.setQuantity(dish.getQuantity() + promotion.getWeek());
+//        }
+//
+//        return order;
+//    }
+//
+//    @Operation(summary = "delete order by id")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "order deleted",
+//            content = {@Content(mediaType = "application/json",
+//            schema = @Schema (implementation = Order.class))}),
+//            @ApiResponse(responseCode = "400", description = "Invalid id",
+//            content = @Content),
+//            @ApiResponse(responseCode = "404", description = "Order not found",
+//            content = @Content)})
+//    @DeleteMapping("/order/{orderId}")
+//    public ResponseEntity<Void> deleteOrder(@PathVariable Long orderId){
+//        boolean deleted = orderService.delete(orderId);
+//
+//        if (deleted) {
+//            return ResponseEntity.noContent().build();
+//        } else {
+//            return ResponseEntity.notFound().build();
+//        }
+//    }
+//
+//    @Operation(summary = "save order")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "order saved successfully",
+//                    content = {@Content(mediaType = "application/json",
+//                            schema = @Schema (implementation = Order.class))}),
+//            @ApiResponse(responseCode = "400", description = "Invalid data",
+//                    content = @Content)})
+//    @PostMapping("/order")
+//    public ResponseEntity<OrderDTO> saveOrder(@RequestHeader("awbd-id") String correlationId, @Valid @RequestBody OrderDTO orderDTO){
+//        OrderDTO savedOrder = orderService.save(orderDTO);
+//        URI locationURI = ServletUriComponentsBuilder.fromCurrentRequest()
+//                .path("/{order}").buildAndExpand(savedOrder.getId()).toUri();
+//        Link selfLink = linkTo(methodOn(OrderController.class).getOrderOld(correlationId, savedOrder.getId())).withSelfRel();
+//        savedOrder.add(selfLink);
+//
+//        return ResponseEntity.created(locationURI).body(savedOrder);
+//    }
+//
+//    @Operation(summary = "update order")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "order updated successfully",
+//                    content = {@Content(mediaType = "application/json",
+//                            schema = @Schema (implementation = Order.class))}),
+//            @ApiResponse(responseCode = "400", description = "Invalid data",
+//                    content = @Content),
+//            @ApiResponse(responseCode = "404", description = "Order not found",
+//                    content = @Content)})
+//    @PutMapping("/order")
+//    public ResponseEntity<OrderDTO> updateOrder(@RequestHeader("awbd-id") String correlationId, @Valid @RequestBody OrderDTO orderDTO){
+//        OrderDTO updatedOrder = orderService.save(orderDTO);
+//
+//        Link selfLink = linkTo(methodOn(OrderController.class).getOrderOld(correlationId, updatedOrder.getId())).withSelfRel();
+//        updatedOrder.add(selfLink);
+//
+//        return ResponseEntity.ok(updatedOrder);
+//    }
+//
+//    @Operation(summary = "get order by client id and status")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200", description = "order returned successfully",
+//                    content = {@Content(mediaType = "application/json",
+//                            schema = @Schema (implementation = Order.class))}),
+//            @ApiResponse(responseCode = "400", description = "Invalid client id or status",
+//                    content = @Content),
+//            @ApiResponse(responseCode = "404", description = "Order not found",
+//                    content = @Content)})
+//    @GetMapping("/order/client/{clientId}/status/{status}")
+//    @CircuitBreaker(name="promotionById", fallbackMethod = "getOrderByClientAndStatusFallback")
+//     public ResponseEntity <List <OrderDTO>> findByClientAndStatus (@RequestHeader("awbd-id") String correlationId, @PathVariable Long clientId,
+//                                @PathVariable String status) {
+//        List<OrderDTO> orders = orderService.findByClientAndStatus(clientId, status);
+//        for(OrderDTO order : orders){
+//            Link selfLink = linkTo(methodOn(OrderController.class).getOrderOld(correlationId, order.getId())).withSelfRel();
+//            order.add(selfLink);
+//
+//        }
+//
+//        ResponseEntity<Promotion> responsePromotion = promotionServiceProxy.findPromotion(correlationId);
+//        Promotion promotion = responsePromotion.getBody();
+//        logger.info(promotion.getVersionId());
+//        logger.info("correlation-id order: {}", correlationId);
+//        for(final OrderDTO order : orders){
+//            List<OrderDishDTO> dishes = order.getDishes();
+//            for (final OrderDishDTO dish : dishes) {
+//                DishDTO dishDTO = dish.getDish();
+//                if (Objects.equals(dishDTO.getName().toLowerCase(), "pizza") && dish.getQuantity() > 2 && Objects.equals(order.getStatus(), "processed"))
+//                    dish.setQuantity(dish.getQuantity() + promotion.getWeek());
+//
+//            }
+//        }
+//        return ResponseEntity.status(HttpStatus.OK).body(orders);
+//     }
+//
+//     OrderDTO getOrderFallback(Long orderId, Throwable throwable){
+//        OrderDTO orderDTO = orderService.findById(orderId);
+//        return orderDTO;
+//     }
+//
+//    public List <OrderDTO> getOrderByClientAndStatusFallback(Long clientId, String status, Throwable throwable){
+//        List<OrderDTO> orders = orderService.findByClientAndStatus(clientId, status);
+//        return orders;
+//    }
+//}
+//
+//
